@@ -1,4 +1,5 @@
 const express = require('express')
+const axios = require('axios')
 let books = require('./booksdb.js')
 let isValid = require('./auth_users.js').isValid
 let users = require('./auth_users.js').users
@@ -12,53 +13,98 @@ public_users.post('/register', (request, response) => {
         username.trim().length > 0
         && password.trim().length > 0
     ) {
-        if (users.find(user => user.username === username)) {
-            response.send('Username unavailable')
+        if (!isValid(username)) {
+            response.status(409).json({ message: 'Username unavailable' })
         } else {
             users.push({ username: username, password: password })
-            response.send('User registered successfully')
+            response.status(200).json({ message: 'User registered successfully' })
         }
     } else {
-        response.send('Please enter a username and password')
+        response.status(400).json({ message: 'Please enter a username and password' })
     }
 })
 
 // Get the book list available in the shop
 public_users.get('/', (request, response) => {
-    response.send(JSON.stringify(books, null, 4))
+    response.status(200).send(JSON.stringify(books, null, 4))
 })
 
-// Get book details based on ISBN
+// Get the book list using Axios from the endpoint immediately above
+public_users.get('/using-axios', async (request, response) => {
+    try {
+        const axiosResponse = await axios.get('http://localhost:5000/')
+        response.status(axiosResponse.status).json(axiosResponse.data)
+    } catch (error) {
+        console.error('Error in fetch: ', error)
+        response.status(500).json({ error })
+    }
+})
+
+// Get book details by ISBN using a promise
 public_users.get('/isbn/:isbn', (request, response) => {
     const isbn = request.params.isbn
-    response.send(JSON.stringify(books[isbn], null, 4))
+    new Promise((resolve, reject) => {
+        books[isbn] ? resolve(books[isbn]) : reject('Not found')
+    })
+    .then(result => {
+        response.status(200).send(JSON.stringify(result, null, 4))
+    })
+    .catch(error => {
+        console.error('Error: ', error)
+        response.status(404).json({ error: error })
+    })
 })
 
-// Get book details based on author
+// Get book details by author using a promise
 public_users.get('/author/:author', (request, response) => {
     const author = request.params.author
-    const booksByAuthor = Object.values(books).filter(book => {
-        return book.author === author
+    new Promise((resolve, reject) => {
+        const booksByAuthor = Object.values(books).filter(book => {
+            return book.author === author
+        })
+        booksByAuthor.length > 0 ? resolve(booksByAuthor) : reject('Not found')
     })
-    console.log(booksByAuthor)
-    response.send(JSON.stringify(booksByAuthor, null, 4))
+    .then(result => {
+        response.status(200).send(JSON.stringify(result, null, 4))
+    })
+    .catch(error => {
+        console.error('Error: ', error)
+        response.status(404).json({ error: error })
+    })
 })
 
-// Get all books based on title
+// Get book details by title using a promise
 public_users.get('/title/:title', (request, response) => {
     const title = request.params.title
-    const booksByTitle = Object.values(books).filter(book => {
-        return book.title === title
+    new Promise((resolve, reject) => {
+        const booksByTitle = Object.values(books).filter(book => {
+            return book.title === title
+        })
+        booksByTitle.length > 0 ? resolve(booksByTitle) : reject('Not found')
     })
-    console.log(booksByTitle)
-    response.send(JSON.stringify(booksByTitle, null, 4))
+    .then(result => {
+        response.status(200).send(JSON.stringify(result, null, 4))
+    })
+    .catch(error => {
+        console.error('Error: ', error)
+        response.status(404).json({ error: error })
+    })
 })
 
-//  Get book review
+//  Get book reviews by ISBN using a promise
 public_users.get('/review/:isbn', (request, response) => {
-    const isbn = request.params.isbn
-    const reviewsByIsbn = books[isbn].reviews
-    response.send(JSON.stringify(reviewsByIsbn, null, 4))
+    new Promise((resolve, reject) => {
+        const isbn = request.params.isbn
+        const reviewsByIsbn = books[isbn].reviews
+        reviewsByIsbn ? resolve(reviewsByIsbn) : reject('Not found')
+    })
+    .then(result => {
+        response.status(200).send(JSON.stringify(result, null, 4))
+    })
+    .catch(error => {
+        console.error('Error: ', error)
+        response.status(404).json({ error: error })
+    })
 })
 
 module.exports.general = public_users
